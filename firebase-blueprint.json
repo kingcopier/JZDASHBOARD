@@ -1,0 +1,24 @@
+{
+  "entities": {
+    "Link": {
+      "title": "Link",
+      "description": "A project or link item in the portfolio",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Title of the project" },
+        "url": { "type": "string", "description": "URL of the project" },
+        "description": { "type": "string", "description": "Short description" },
+        "category": { "type": "string", "enum": ["Development", "Design", "Marketing", "Operations", "Inspiration", "Other"] },
+        "createdAt": { "type": "number", "description": "Timestamp of creation" },
+        "authorUid": { "type": "string", "description": "UID of the creator" }
+      },
+      "required": ["title", "url", "category", "createdAt", "authorUid"]
+    }
+  },
+  "firestore": {
+    "/links/{linkId}": {
+      "schema": "Link",
+      "description": "Collection of portfolio projects"
+    }
+  }
+}
