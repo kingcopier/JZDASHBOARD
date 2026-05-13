@@ -1,0 +1,133 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Collections:
+    //   /links       — portfolio projects/links
+    //   /users       — user profiles + roles (pending/public/vip/admin)
+    //   /categories  — dynamic section names (seeded from DEFAULT_CATEGORIES)
+    //   /tags        — tag registry with usage counts
+    //
+    // NOTE: VIP vs. public visibility enforcement is handled client-side.
+    //       Firestore rules cannot cross-collection lookup without custom
+    //       claims. Accepted tradeoff for a personal portfolio app.
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Admin identified by hardcoded email + verified token
+    function isAdmin() {
+      return isAuthenticated() &&
+        request.auth.token.email == "ceicopiers@gmail.com" &&
+        request.auth.token.email_verified == true;
+    }
+
+    // ── Link helpers ────────────────────────────────────────────────
+
+    // Validate optional tags field (if present)
+    function validTags(data) {
+      return !('tags' in data) ||
+             (data.tags is list && data.tags.size() <= 8);
+    }
+
+    // Validate optional imageUrl field (if present)
+    function validImageUrl(data) {
+      return !('imageUrl' in data) ||
+             data.imageUrl is string;
+    }
+
+    // Validate visibility field
+    function validVisibility(data) {
+      return !('visibility' in data) ||
+             data.visibility in ['public', 'vip', 'admin'];
+    }
+
+    // Full document validation for admin create/update
+    // NOTE: category is now a free string (dynamic from /categories collection)
+    function isValidLink(data) {
+      return data.keys().hasAll(['title', 'url', 'category', 'createdAt', 'authorUid']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
+             data.url is string && data.url.matches("^https?://.*") &&
+             data.category is string && data.category.size() > 0 &&
+             data.createdAt is number &&
+             data.authorUid == request.auth.uid &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+             validTags(data) &&
+             validImageUrl(data) &&
+             validVisibility(data);
+    }
+
+    // Allow anonymous viewCount-only increments
+    function isViewCountOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount']) &&
+             request.resource.data.viewCount == resource.data.viewCount + 1;
+    }
+
+    // ── /links ──────────────────────────────────────────────────────
+    match /links/{linkId} {
+      // Public links are readable by everyone.
+      // VIP/admin-visibility links are also readable here — role
+      // filtering is enforced client-side (see App.tsx VISIBLE_FOR_ROLE).
+      allow read: if true;
+
+      allow create: if isAdmin() && isValidLink(request.resource.data);
+
+      allow update: if
+        // Admin full update (authorUid + createdAt must not change)
+        (isAdmin() &&
+         isValidLink(request.resource.data) &&
+         request.resource.data.authorUid == resource.data.authorUid &&
+         request.resource.data.createdAt == resource.data.createdAt)
+        ||
+        // Anyone can increment viewCount by exactly 1 (no other field changes)
+        isViewCountOnly();
+
+      allow delete: if isAdmin();
+    }
+
+    // ── /users ──────────────────────────────────────────────────────
+    // Users can create and read their own document (set on first login).
+    // Only admin can update any user document (e.g. role changes).
+    // Admin can also delete user records.
+    match /users/{uid} {
+      allow read:   if isAdmin() || (isAuthenticated() && request.auth.uid == uid);
+      allow create: if isAuthenticated() && request.auth.uid == uid &&
+                       request.resource.data.keys().hasAll(['uid', 'email', 'role', 'createdAt']) &&
+                       request.resource.data.uid == request.auth.uid &&
+                       request.resource.data.role in ['pending', 'admin'];
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── /categories ─────────────────────────────────────────────────
+    // Anyone can read sections (needed for public project view + link form).
+    // Only admin can create/update/delete.
+    match /categories/{categoryId} {
+      allow read:   if true;
+      allow create: if isAdmin() &&
+                       request.resource.data.keys().hasAll(['name', 'order', 'createdAt']) &&
+                       request.resource.data.name is string &&
+                       request.resource.data.name.size() > 0 &&
+                       request.resource.data.order is number;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── /tags ────────────────────────────────────────────────────────
+    // Anyone can read tags (needed for filtering UI).
+    // Only admin can create/delete tags manually.
+    // Count updates (increments from link saves) also allowed for admin.
+    match /tags/{tagId} {
+      allow read:   if true;
+      allow create: if isAdmin() &&
+                       request.resource.data.keys().hasAll(['name', 'count', 'createdAt']) &&
+                       request.resource.data.name is string &&
+                       request.resource.data.name.size() > 0 &&
+                       request.resource.data.count is number;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}
