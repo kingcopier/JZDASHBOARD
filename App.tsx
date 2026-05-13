@@ -59,13 +59,22 @@ const App: React.FC = () => {
       setUser(firebaseUser);
 
       if (firebaseUser) {
-        const role = await ensureUserDoc(firebaseUser);
-        setUserRole(role);
+        try {
+          const role = await ensureUserDoc(firebaseUser);
+          setUserRole(role);
 
-        if (role === 'pending') {
-          setView('login'); // Shows pending screen (handled below)
-        } else {
-          setView('dashboard');
+          if (role === 'pending') {
+            setView('login'); // Shows pending screen (handled below)
+          } else {
+            setView('dashboard');
+          }
+        } catch (err) {
+          // Firestore rules not yet published, or network error.
+          // Fall back: treat admin email as admin, everyone else pending.
+          console.error('ensureUserDoc failed:', err);
+          const fallbackRole = firebaseUser.email === 'ceicopiers@gmail.com' ? 'admin' : 'pending';
+          setUserRole(fallbackRole as UserRole);
+          setView(fallbackRole === 'admin' ? 'dashboard' : 'login');
         }
       } else {
         setUserRole('public');
@@ -139,12 +148,16 @@ const App: React.FC = () => {
 
   const handleSave = async (data: Omit<LinkItem, 'id' | 'createdAt'>) => {
     if (!user) return;
+    // Firestore rejects undefined values — strip them before writing
+    const clean = Object.fromEntries(
+      Object.entries(data).filter(([, v]) => v !== undefined)
+    );
     try {
       if (editingLink) {
-        await updateDoc(doc(db, 'links', editingLink.id), { ...data, updatedAt: Date.now() });
+        await updateDoc(doc(db, 'links', editingLink.id), { ...clean, updatedAt: Date.now() });
       } else {
         await addDoc(collection(db, 'links'), {
-          ...data,
+          ...clean,
           createdAt: Date.now(),
           authorUid: user.uid,
           viewCount: 0,

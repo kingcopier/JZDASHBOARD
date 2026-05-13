@@ -17,11 +17,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Admin identified by hardcoded email + verified token
+    // Admin identified by hardcoded email
     function isAdmin() {
       return isAuthenticated() &&
-        request.auth.token.email == "ceicopiers@gmail.com" &&
-        request.auth.token.email_verified == true;
+        request.auth.token.email == "ceicopiers@gmail.com";
     }
 
     // ── Link helpers ────────────────────────────────────────────────

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, KeyboardEvent } from 'react';
+import React, { useState, useEffect, KeyboardEvent, useRef } from 'react';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../firebase';
 import { LinkItem, ProjectVisibility, CategoryItem } from '../types';
-import { Select } from './Input';
 import { Button } from './Button';
-import { Save, X, Tag, Globe, Star, Shield } from 'lucide-react';
+import { Save, X, Tag, Globe, Star, Shield, Upload, Loader } from 'lucide-react';
 
 interface LinkFormProps {
   initialData?: LinkItem | null;
@@ -24,9 +25,14 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
   const [category, setCategory] = useState('');
   const [visibility, setVisibility] = useState<ProjectVisibility>('public');
   const [imageUrl, setImageUrl] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>('');
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [error, setError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Default category to first available
   useEffect(() => {
@@ -43,7 +49,9 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
       setCategory(initialData.category);
       setVisibility(initialData.visibility ?? 'public');
       setImageUrl(initialData.imageUrl ?? '');
+      setImagePreview(initialData.imageUrl ?? '');
       setTags(initialData.tags ?? []);
+      setImageFile(null);
     } else {
       setTitle('');
       setUrl('');
@@ -51,10 +59,43 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
       setCategory(categories[0]?.name ?? '');
       setVisibility('public');
       setImageUrl('');
+      setImageFile(null);
+      setImagePreview('');
       setTagInput('');
       setTags([]);
     }
   }, [initialData]);
+
+  const handleFileSelect = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image must be under 5MB.');
+      return;
+    }
+    setImageFile(file);
+    setImageUrl('');
+    setError('');
+    const reader = new FileReader();
+    reader.onload = e => setImagePreview(e.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(file);
+  };
+
+  const clearImage = () => {
+    setImageFile(null);
+    setImagePreview('');
+    setImageUrl('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const addTag = (raw: string) => {
     const trimmed = raw.trim().toLowerCase().replace(/\s+/g, '-');
@@ -73,7 +114,7 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
 
   const removeTag = (tag: string) => setTags(prev => prev.filter(t => t !== tag));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (!title.trim() || !url.trim()) { setError('Title and URL are required.'); return; }
@@ -88,6 +129,27 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
       if (t && !finalTags.includes(t)) finalTags.push(t);
     }
 
+    let resolvedImageUrl: string | undefined = imageUrl.trim() || undefined;
+
+    // Upload file to Firebase Storage if one was selected
+    if (imageFile) {
+      setUploading(true);
+      try {
+        const ext = imageFile.name.split('.').pop() ?? 'jpg';
+        const path = `thumbnails/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const storageRef = ref(storage, path);
+        await uploadBytes(storageRef, imageFile);
+        resolvedImageUrl = await getDownloadURL(storageRef);
+      } catch (err) {
+        console.error('Upload failed:', err);
+        setError('Image upload failed. Try a URL instead.');
+        setUploading(false);
+        return;
+      } finally {
+        setUploading(false);
+      }
+    }
+
     onSubmit({
       title: title.trim(),
       url: url.trim(),
@@ -95,7 +157,7 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
       category,
       visibility,
       tags: finalTags,
-      imageUrl: imageUrl.trim() || undefined,
+      imageUrl: resolvedImageUrl,
     });
   };
 
@@ -203,19 +265,89 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
         </div>
       </div>
 
-      {/* Thumbnail */}
+      {/* Thumbnail — upload or URL */}
       <div className="space-y-1.5">
-        <label className="block text-xs font-mono text-zinc-400 uppercase tracking-wider">Thumbnail URL (optional)</label>
+        <label className="block text-xs font-mono text-zinc-400 uppercase tracking-wider">Thumbnail</label>
+
+        {/* Preview */}
+        {imagePreview && (
+          <div className="relative group w-full h-36 rounded-lg overflow-hidden border border-zinc-700">
+            <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+            <button
+              type="button"
+              onClick={clearImage}
+              className="absolute top-2 right-2 p-1 rounded-full bg-black/70 text-zinc-300 hover:text-white hover:bg-black transition-colors opacity-0 group-hover:opacity-100"
+              aria-label="Remove image"
+            >
+              <X size={14} />
+            </button>
+            {imageFile && (
+              <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/60 font-mono text-[9px] text-zinc-400">
+                {imageFile.name}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Drop zone — only show when no preview */}
+        {!imagePreview && (
+          <div
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`w-full h-24 rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors ${
+              dragOver
+                ? 'border-cyan-500 bg-cyan-950/20'
+                : 'border-zinc-700 hover:border-zinc-600 bg-zinc-900/30'
+            }`}
+          >
+            <Upload size={16} className="text-zinc-500" />
+            <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider">
+              Drop image or click to upload
+            </span>
+            <span className="font-mono text-[9px] text-zinc-700">PNG, JPG, WebP · max 5MB</span>
+          </div>
+        )}
+
         <input
-          value={imageUrl} onChange={e => { setImageUrl(e.target.value); setError(''); }}
-          placeholder="https://i.imgur.com/... or any image URL"
-          className="w-full bg-zinc-900/50 border border-zinc-700 rounded-lg px-3 py-2.5 text-zinc-100 placeholder-zinc-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors outline-none text-sm"
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }}
         />
+
+        {/* Divider */}
+        {!imagePreview && (
+          <div className="flex items-center gap-2 py-1">
+            <div className="flex-1 h-px bg-zinc-800" />
+            <span className="font-mono text-[9px] text-zinc-700 uppercase tracking-wider">or paste a URL</span>
+            <div className="flex-1 h-px bg-zinc-800" />
+          </div>
+        )}
+
+        {/* URL fallback — hidden when a file is selected */}
+        {!imageFile && (
+          <input
+            value={imageUrl}
+            onChange={e => { setImageUrl(e.target.value); setError(''); setImagePreview(e.target.value); }}
+            placeholder="https://i.imgur.com/... or any image URL"
+            className="w-full bg-zinc-900/50 border border-zinc-700 rounded-lg px-3 py-2.5 text-zinc-100 placeholder-zinc-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors outline-none text-sm"
+          />
+        )}
       </div>
 
       <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800 mt-6">
-        <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" variant="primary" icon={<Save size={16} />}>Save Link</Button>
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={uploading}>Cancel</Button>
+        <Button
+          type="submit"
+          variant="primary"
+          icon={uploading ? <Loader size={16} className="animate-spin" /> : <Save size={16} />}
+          disabled={uploading}
+        >
+          {uploading ? 'Uploading...' : 'Save Link'}
+        </Button>
       </div>
     </form>
   );

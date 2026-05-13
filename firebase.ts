@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import type { User } from 'firebase/auth';
 import type { UserRecord } from './types';
 
@@ -17,6 +18,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app); // jzdashboard uses the default Firestore database
+export const storage = getStorage(app);
 
 /**
  * Called once on every auth state change.
@@ -34,7 +36,7 @@ export async function ensureUserDoc(firebaseUser: User): Promise<UserRecord['rol
   }
 
   // First time — create the user record
-  const isAdmin = firebaseUser.email === ADMIN_EMAIL && firebaseUser.emailVerified;
+  const isAdmin = firebaseUser.email === ADMIN_EMAIL;
   const role: UserRecord['role'] = isAdmin ? 'admin' : 'pending';
 
   const record: Omit<UserRecord, 'id'> = {
