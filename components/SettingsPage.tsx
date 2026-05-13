@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Users, LayoutGrid, Tag } from 'lucide-react';
+import { ArrowLeft, Users, LayoutGrid, Tag, KeyRound, Mail } from 'lucide-react';
 import { UsersTab } from './settings/UsersTab';
 import { SectionsTab } from './settings/SectionsTab';
 import { TagsTab } from './settings/TagsTab';
+import { VaultTab } from './settings/VaultTab';
+import { RequestsTab } from './settings/RequestsTab';
 
-type Tab = 'users' | 'sections' | 'tags';
+type Tab = 'users' | 'sections' | 'tags' | 'vault' | 'requests';
 
 const TABS: { id: Tab; label: string; Icon: React.FC<{ size?: number }> }[] = [
   { id: 'users',    label: 'Users',    Icon: ({ size }) => <Users size={size} /> },
   { id: 'sections', label: 'Sections', Icon: ({ size }) => <LayoutGrid size={size} /> },
   { id: 'tags',     label: 'Tags',     Icon: ({ size }) => <Tag size={size} /> },
+  { id: 'vault',    label: 'Vault',    Icon: ({ size }) => <KeyRound size={size} /> },
+  { id: 'requests', label: 'Requests', Icon: ({ size }) => <Mail size={size} /> },
 ];
 
 interface SettingsPageProps {
@@ -68,6 +72,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
           {activeTab === 'users'    && <UsersTab />}
           {activeTab === 'sections' && <SectionsTab />}
           {activeTab === 'tags'     && <TagsTab />}
+          {activeTab === 'vault'    && <VaultTab />}
+          {activeTab === 'requests' && <RequestsTab />}
         </div>
       </div>
     </div>

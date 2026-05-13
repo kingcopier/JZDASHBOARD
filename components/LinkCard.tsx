@@ -36,10 +36,17 @@ export const getCategoryColor = (category: Category) => {
 
 export const LinkCard: React.FC<LinkCardProps> = ({ link, index, onEdit, onDelete, onView, isAuthenticated, style }) => {
   const formattedIndex = (index + 1).toString().padStart(2, '0');
+  const hostname = (() => {
+    try {
+      return new URL(link.url).hostname.replace(/^www\./, '');
+    } catch {
+      return link.url;
+    }
+  })();
 
   return (
     <div
-      className="group relative flex flex-col h-full bg-[#0a0a0c] border border-zinc-800/80 rounded-xl overflow-hidden hover:border-cyan-500/50 transition-all duration-300 hover:shadow-[0_0_30px_rgba(6,182,212,0.15)] hover:scale-[1.02] hover:-translate-y-1 cursor-pointer animate-fade-in-up"
+      className="panel-surface group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[1.5rem] border border-white/8 bg-radial-panel transition-all duration-300 hover:-translate-y-1 hover:border-sky-300/28 hover:shadow-[0_24px_70px_rgba(14,165,233,0.14)] motion-reduce:transform-none motion-reduce:transition-none animate-fade-in-up"
       style={style}
       onClick={() => onView(link)}
       role="button"
@@ -48,45 +55,48 @@ export const LinkCard: React.FC<LinkCardProps> = ({ link, index, onEdit, onDelet
       aria-label={`View details for ${link.title}`}
     >
       {/* Decorative Top Bar */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-zinc-800 to-transparent group-hover:via-cyan-500/50 transition-all duration-500" />
+      <div className="pulse-line absolute left-5 right-5 top-4 h-px bg-gradient-to-r from-transparent via-sky-300/45 to-transparent motion-reduce:animate-none" />
 
       {/* Thumbnail */}
       {link.imageUrl && (
-        <div className="relative h-40 overflow-hidden flex-shrink-0">
+        <div className="relative h-44 overflow-hidden flex-shrink-0">
           <img
             src={link.imageUrl}
             alt={link.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none"
             loading="lazy"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0c] via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#08101f] via-transparent to-transparent" />
         </div>
       )}
 
-      <div className="p-6 flex flex-col h-full">
+      <div className="flex h-full flex-col p-6">
         {/* Header Row */}
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <span className="font-mono text-xs text-zinc-600 group-hover:text-cyan-500/70 transition-colors">#{formattedIndex}</span>
-            <div className={`flex items-center gap-2 px-2.5 py-1 rounded-md border text-[10px] uppercase font-bold tracking-wider ${getCategoryColor(link.category)}`}>
-              {getCategoryIcon(link.category)}
-              <span>{link.category}</span>
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-xs text-slate-500 transition-colors group-hover:text-sky-300/80">#{formattedIndex}</span>
+              <div className={`flex items-center gap-2 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${getCategoryColor(link.category)}`}>
+                {getCategoryIcon(link.category)}
+                <span>{link.category}</span>
+              </div>
             </div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-slate-500">{hostname}</p>
           </div>
 
           {isAuthenticated && (
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div className="flex items-center gap-1 opacity-100 transition-opacity duration-200 md:opacity-0 md:group-hover:opacity-100">
               <button
                 onClick={(e) => { e.stopPropagation(); onEdit(link); }}
                 aria-label={`Edit ${link.title}`}
-                className="p-2 text-zinc-500 hover:text-cyan-400 hover:bg-cyan-950/50 rounded-lg transition-colors"
+                className="rounded-xl p-2 text-slate-500 transition-colors hover:bg-sky-400/10 hover:text-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200"
               >
                 <Edit2 size={14} />
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onDelete(link.id); }}
                 aria-label={`Delete ${link.title}`}
-                className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-950/50 rounded-lg transition-colors"
+                className="rounded-xl p-2 text-slate-500 transition-colors hover:bg-red-500/10 hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
               >
                 <Trash2 size={14} />
               </button>
@@ -94,45 +104,42 @@ export const LinkCard: React.FC<LinkCardProps> = ({ link, index, onEdit, onDelet
           )}
         </div>
 
-        {/* Title & Description */}
-        <div className="mb-4 flex-grow">
-          <h3 className="text-xl font-bold text-zinc-100 mb-3 group-hover:text-cyan-400 transition-colors font-orbitron tracking-wide leading-tight">
+        <div className="mb-5 flex-grow">
+          <h3 className="mb-3 font-orbitron text-2xl font-bold leading-tight tracking-tight text-white transition-colors group-hover:text-sky-100">
             {link.title}
           </h3>
-          <p className="text-sm text-zinc-400 leading-relaxed font-light border-l-2 border-zinc-800 pl-4 group-hover:border-cyan-500/30 transition-colors line-clamp-3">
+          <p className="line-clamp-3 border-l-2 border-white/8 pl-4 text-sm leading-7 text-slate-400 transition-colors group-hover:border-sky-300/25 group-hover:text-slate-300">
             {link.description}
           </p>
         </div>
 
-        {/* Tags */}
         {link.tags && link.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-4">
+          <div className="mb-5 flex flex-wrap gap-2">
             {link.tags.slice(0, 4).map(tag => (
               <span
                 key={tag}
-                className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono rounded-full bg-zinc-800/80 text-zinc-400 border border-zinc-700/50"
+                className="flex items-center gap-1 rounded-full border border-white/8 bg-white/[0.04] px-2.5 py-1 text-[10px] font-mono text-slate-400"
               >
-                <Tag size={8} className="text-cyan-600" />
+                <Tag size={8} className="text-sky-300" />
                 {tag}
               </span>
             ))}
             {link.tags.length > 4 && (
-              <span className="px-2 py-0.5 text-[10px] font-mono rounded-full bg-zinc-800/80 text-zinc-500 border border-zinc-700/50">
+              <span className="rounded-full border border-white/8 bg-white/[0.04] px-2.5 py-1 text-[10px] font-mono text-slate-500">
                 +{link.tags.length - 4}
               </span>
             )}
           </div>
         )}
 
-        {/* Footer */}
-        <div className="pt-4 mt-auto border-t border-zinc-900 flex justify-between items-center">
+        <div className="mt-auto flex items-center justify-between border-t border-white/8 pt-4">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-600">
-              <div className="w-1.5 h-1.5 rounded-full bg-zinc-700 group-hover:bg-green-500 transition-colors" />
-              DEPLOYED
+            <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(74,222,128,0.65)]" />
+              Live
             </div>
             {isAuthenticated && link.viewCount !== undefined && link.viewCount > 0 && (
-              <div className="flex items-center gap-1 text-[10px] font-mono text-zinc-600">
+              <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500">
                 <Eye size={10} />
                 {link.viewCount.toLocaleString()}
               </div>
@@ -144,9 +151,10 @@ export const LinkCard: React.FC<LinkCardProps> = ({ link, index, onEdit, onDelet
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-2 text-xs font-bold tracking-wider uppercase text-zinc-300 hover:text-cyan-400 transition-colors group-hover:translate-x-1 duration-300"
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-100 transition-all duration-200 hover:border-sky-300/35 hover:bg-sky-400/10 hover:text-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 motion-reduce:transition-none"
           >
-            View <ArrowUpRight size={14} />
+            View
+            <ArrowUpRight size={14} />
           </a>
         </div>
       </div>

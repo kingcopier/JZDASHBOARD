@@ -45,6 +45,21 @@ export interface TagItem {
   createdAt: number;
 }
 
+// ── App settings ────────────────────────────────────────────────────────────
+export interface VaultSettings {
+  phrase: string;
+  updatedAt?: number;
+}
+
+// ── Access requests ─────────────────────────────────────────────────────────
+export interface AccessRequest {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: number;
+  source: 'vault-denied';
+}
+
 // ── Links / Projects ──────────────────────────────────────────────────────────
 export interface LinkItem {
   id: string;
