@@ -279,84 +279,81 @@ const App: React.FC = () => {
         <main>
           {/* ── Controls ── */}
           <div className="sticky top-4 z-30 mb-12 space-y-3">
-            <div className="flex flex-col md:flex-row gap-4">
-              {/* Search */}
-              <div className="relative group flex-grow">
+
+            {/* Row 1: Search + Sort */}
+            <div className="flex gap-3">
+              <div className="relative group flex-1">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Search size={18} className="text-zinc-500 group-focus-within:text-cyan-400 transition-colors" />
+                  <Search size={16} className="text-zinc-500 group-focus-within:text-cyan-400 transition-colors" />
                 </div>
                 <input
                   type="text"
                   aria-label="Search projects"
-                  className="block w-full pl-11 pr-4 py-4 bg-[#0a0a0c]/80 backdrop-blur-xl border border-zinc-800/80 rounded-xl text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all shadow-lg font-mono text-sm"
+                  className="block w-full pl-10 pr-4 py-3 bg-[#0a0a0c]/80 backdrop-blur-xl border border-zinc-800/80 rounded-xl text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all shadow-lg font-mono text-sm"
                   placeholder="SEARCH_PROJECTS..."
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                 />
               </div>
+              <button
+                onClick={() => setSortOrder(s => s === 'newest' ? 'oldest' : 'newest')}
+                aria-label="Toggle sort order"
+                className="flex items-center gap-2 px-4 py-3 rounded-xl text-xs font-bold tracking-wider uppercase transition-all border whitespace-nowrap bg-[#0a0a0c]/80 text-zinc-500 border-zinc-800/80 hover:border-zinc-700 hover:text-zinc-300"
+              >
+                {sortOrder === 'newest' ? <Clock size={13} /> : <ArrowUpDown size={13} />}
+                {sortOrder === 'newest' ? 'Newest' : 'Oldest'}
+              </button>
+            </div>
 
-              {/* Filters */}
-              <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar items-center">
-                {/* Category filters */}
+            {/* Row 2: Category + Visibility filters (wrapping) */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <button
+                onClick={() => setSelectedCategory('All')}
+                className={`px-3.5 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition-all border whitespace-nowrap ${
+                  selectedCategory === 'All'
+                    ? 'bg-cyan-950/30 text-cyan-400 border-cyan-500/50 shadow-[0_0_12px_rgba(6,182,212,0.15)]'
+                    : 'bg-[#0a0a0c]/80 text-zinc-500 border-zinc-800/80 hover:border-zinc-700 hover:text-zinc-300'
+                }`}
+              >
+                All
+              </button>
+              {categories.map(cat => (
                 <button
-                  onClick={() => setSelectedCategory('All')}
-                  className={`px-4 py-3.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all border whitespace-nowrap ${
-                    selectedCategory === 'All'
-                      ? 'bg-cyan-950/30 text-cyan-400 border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.15)]'
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.name)}
+                  className={`px-3.5 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition-all border whitespace-nowrap ${
+                    selectedCategory === cat.name
+                      ? 'bg-cyan-950/30 text-cyan-400 border-cyan-500/50 shadow-[0_0_12px_rgba(6,182,212,0.15)]'
                       : 'bg-[#0a0a0c]/80 text-zinc-500 border-zinc-800/80 hover:border-zinc-700 hover:text-zinc-300'
                   }`}
                 >
-                  All
+                  {cat.name}
                 </button>
-                {categories.map(cat => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.name)}
-                    className={`px-4 py-3.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all border whitespace-nowrap ${
-                      selectedCategory === cat.name
-                        ? 'bg-cyan-950/30 text-cyan-400 border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.15)]'
-                        : 'bg-[#0a0a0c]/80 text-zinc-500 border-zinc-800/80 hover:border-zinc-700 hover:text-zinc-300'
-                    }`}
-                  >
-                    {cat.name}
-                  </button>
-                ))}
+              ))}
 
-                {/* Visibility filter — admin only */}
-                {isAdmin && (
-                  <>
-                    <div className="w-px h-6 bg-zinc-800 mx-1" />
-                    {(['All', 'public', 'vip', 'admin'] as const).map(v => {
-                      const icons = { All: null, public: <Globe size={11} />, vip: <Star size={11} />, admin: <Shield size={11} /> };
-                      return (
-                        <button
-                          key={v}
-                          onClick={() => setSelectedVisibility(v)}
-                          className={`flex items-center gap-1.5 px-3 py-3.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all border whitespace-nowrap ${
-                            selectedVisibility === v
-                              ? 'bg-purple-950/30 text-purple-400 border-purple-500/50'
-                              : 'bg-[#0a0a0c]/80 text-zinc-600 border-zinc-800/80 hover:border-zinc-700 hover:text-zinc-400'
-                          }`}
-                        >
-                          {icons[v]}
-                          {v}
-                        </button>
-                      );
-                    })}
-                  </>
-                )}
-
-                {/* Sort */}
-                <div className="w-px h-6 bg-zinc-800 mx-1" />
-                <button
-                  onClick={() => setSortOrder(s => s === 'newest' ? 'oldest' : 'newest')}
-                  aria-label="Toggle sort order"
-                  className="flex items-center gap-2 px-4 py-3.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-all border whitespace-nowrap bg-[#0a0a0c]/80 text-zinc-500 border-zinc-800/80 hover:border-zinc-700 hover:text-zinc-300"
-                >
-                  {sortOrder === 'newest' ? <Clock size={13} /> : <ArrowUpDown size={13} />}
-                  {sortOrder === 'newest' ? 'Newest' : 'Oldest'}
-                </button>
-              </div>
+              {/* Visibility filter — admin only */}
+              {isAdmin && (
+                <>
+                  <div className="w-px h-5 bg-zinc-800/80 mx-0.5" />
+                  {(['All', 'public', 'vip', 'admin'] as const).map(v => {
+                    const icons = { All: null, public: <Globe size={10} />, vip: <Star size={10} />, admin: <Shield size={10} /> };
+                    return (
+                      <button
+                        key={v}
+                        onClick={() => setSelectedVisibility(v)}
+                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition-all border whitespace-nowrap ${
+                          selectedVisibility === v
+                            ? 'bg-purple-950/30 text-purple-400 border-purple-500/50 shadow-[0_0_12px_rgba(168,85,247,0.12)]'
+                            : 'bg-[#0a0a0c]/80 text-zinc-600 border-zinc-800/80 hover:border-zinc-700 hover:text-zinc-400'
+                        }`}
+                      >
+                        {icons[v]}
+                        {v}
+                      </button>
+                    );
+                  })}
+                </>
+              )}
             </div>
           </div>
 
