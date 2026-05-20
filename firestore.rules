@@ -9,6 +9,7 @@ service cloud.firestore {
     //   /tags        — tag registry with usage counts
     //   /appSettings — public app settings, admin-write only
     //   /accessRequests — public vault access requests
+    //   /vaultAnalytics — public-safe vault event counters, admin-read only
     //
     // NOTE: VIP vs. public visibility enforcement is handled client-side.
     //       Firestore rules cannot cross-collection lookup without custom
@@ -58,6 +59,40 @@ service cloud.firestore {
              validTags(data) &&
              validImageUrl(data) &&
              validVisibility(data);
+    }
+
+    function isOptionalString(data, key, maxLength) {
+      return !(key in data) ||
+             (data[key] is string && data[key].size() <= maxLength);
+    }
+
+    function isValidVaultSettings(data) {
+      return data.keys().hasOnly([
+               'phrase',
+               'terminalTitle',
+               'denialCopy',
+               'requestTitle',
+               'requestCopy',
+               'intensity',
+               'soundEnabled',
+               'easterEggPhrase',
+               'easterEggMessage',
+               'easterEggVisual',
+               'updatedAt'
+             ]) &&
+             data.phrase is string &&
+             data.phrase.size() > 0 &&
+             data.phrase.size() <= 80 &&
+             isOptionalString(data, 'terminalTitle', 100) &&
+             isOptionalString(data, 'denialCopy', 180) &&
+             isOptionalString(data, 'requestTitle', 100) &&
+             isOptionalString(data, 'requestCopy', 280) &&
+             isOptionalString(data, 'easterEggPhrase', 80) &&
+             isOptionalString(data, 'easterEggMessage', 280) &&
+             (!('intensity' in data) || data.intensity in ['subtle', 'cinematic', 'chaos']) &&
+             (!('soundEnabled' in data) || data.soundEnabled is bool) &&
+             (!('easterEggVisual' in data) || data.easterEggVisual in ['amber', 'emerald', 'rose']) &&
+             (!('updatedAt' in data) || data.updatedAt is number);
     }
 
     // Allow anonymous viewCount-only increments
@@ -136,15 +171,14 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if isAdmin() &&
         settingId == 'vault' &&
-        request.resource.data.phrase is string &&
-        request.resource.data.phrase.size() > 0 &&
-        request.resource.data.phrase.size() <= 80;
+        isValidVaultSettings(request.resource.data);
       allow delete: if isAdmin();
     }
 
     // ── /accessRequests ──────────────────────────────────────────────
     match /accessRequests/{requestId} {
       allow create: if
+        request.resource.data.keys().hasOnly(['name', 'email', 'createdAt', 'source']) &&
         request.resource.data.keys().hasAll(['name', 'email', 'createdAt', 'source']) &&
         request.resource.data.name is string &&
         request.resource.data.name.size() > 0 &&
@@ -155,6 +189,19 @@ service cloud.firestore {
         request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$') &&
         request.resource.data.createdAt is number &&
         request.resource.data.source == 'vault-denied';
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ── /vaultAnalytics ──────────────────────────────────────────────
+    match /vaultAnalytics/{eventId} {
+      allow create: if
+        request.resource.data.keys().hasOnly(['type', 'createdAt', 'source', 'intensity']) &&
+        request.resource.data.keys().hasAll(['type', 'createdAt', 'source']) &&
+        request.resource.data.type in ['opened', 'success', 'denied', 'easter'] &&
+        request.resource.data.createdAt is number &&
+        request.resource.data.source == 'vault' &&
+        (!('intensity' in request.resource.data) ||
+          request.resource.data.intensity in ['subtle', 'cinematic', 'chaos']);
       allow read, update, delete: if isAdmin();
     }
   }
