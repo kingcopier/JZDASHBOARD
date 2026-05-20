@@ -48,7 +48,24 @@ export interface TagItem {
 // ── App settings ────────────────────────────────────────────────────────────
 export interface VaultSettings {
   phrase: string;
+  terminalTitle?: string;
+  denialCopy?: string;
+  requestTitle?: string;
+  requestCopy?: string;
+  intensity?: 'subtle' | 'cinematic' | 'chaos';
+  soundEnabled?: boolean;
+  easterEggPhrase?: string;
+  easterEggMessage?: string;
+  easterEggVisual?: 'amber' | 'emerald' | 'rose';
   updatedAt?: number;
+}
+
+export interface VaultAnalyticsEvent {
+  id: string;
+  type: 'opened' | 'success' | 'denied' | 'easter';
+  createdAt: number;
+  source: 'vault';
+  intensity?: 'subtle' | 'cinematic' | 'chaos';
 }
 
 // ── Access requests ─────────────────────────────────────────────────────────
@@ -74,4 +91,7 @@ export interface LinkItem {
   tags?: string[];
   imageUrl?: string;
   viewCount?: number;
+  type?: 'link' | 'note';
+  content?: string;
+  fileName?: string;
 }

@@ -405,7 +405,7 @@ const App: React.FC = () => {
         <Modal
           isOpen={modalOpen}
           onClose={() => setModalOpen(false)}
-          title={editingLink ? 'MODIFY PROJECT' : 'DEPLOY NEW PROJECT'}
+          title={editingLink ? (editingLink.type === 'note' ? 'MODIFY NOTE' : 'MODIFY PROJECT') : 'ADD NEW ARTIFACT'}
         >
           <LinkForm
             initialData={editingLink}

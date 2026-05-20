@@ -3,7 +3,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase';
 import { LinkItem, ProjectVisibility, CategoryItem } from '../types';
 import { Button } from './Button';
-import { Save, X, Tag, Globe, Star, Shield, Upload, Loader } from 'lucide-react';
+import { Save, X, Tag, Globe, Star, Shield, Upload, Loader, Link2, FileText } from 'lucide-react';
 
 interface LinkFormProps {
   initialData?: LinkItem | null;
@@ -19,9 +19,12 @@ const VISIBILITY_OPTIONS: { value: ProjectVisibility; label: string; desc: strin
 ];
 
 export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onSubmit, onCancel }) => {
+  const [itemType, setItemType] = useState<'link' | 'note'>('link');
   const [title, setTitle] = useState('');
   const [url, setUrl] = useState('');
   const [description, setDescription] = useState('');
+  const [content, setContent] = useState('');
+  const [fileName, setFileName] = useState('');
   const [category, setCategory] = useState('');
   const [visibility, setVisibility] = useState<ProjectVisibility>('public');
   const [imageUrl, setImageUrl] = useState('');
@@ -33,6 +36,7 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
   const [tags, setTags] = useState<string[]>([]);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mdInputRef = useRef<HTMLInputElement>(null);
 
   // Default category to first available
   useEffect(() => {
@@ -43,9 +47,12 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
 
   useEffect(() => {
     if (initialData) {
+      setItemType(initialData.type === 'note' ? 'note' : 'link');
       setTitle(initialData.title);
       setUrl(initialData.url);
       setDescription(initialData.description);
+      setContent(initialData.content ?? '');
+      setFileName(initialData.fileName ?? '');
       setCategory(initialData.category);
       setVisibility(initialData.visibility ?? 'public');
       setImageUrl(initialData.imageUrl ?? '');
@@ -53,9 +60,12 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
       setTags(initialData.tags ?? []);
       setImageFile(null);
     } else {
+      setItemType('link');
       setTitle('');
       setUrl('');
       setDescription('');
+      setContent('');
+      setFileName('');
       setCategory(categories[0]?.name ?? '');
       setVisibility('public');
       setImageUrl('');
@@ -114,11 +124,33 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
 
   const removeTag = (tag: string) => setTags(prev => prev.filter(t => t !== tag));
 
+  const handleMdFileSelect = (file: File) => {
+    if (!file.name.endsWith('.md') && !file.type.includes('text')) {
+      setError('Please select a .md or text file.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      setContent(e.target?.result as string ?? '');
+      setFileName(file.name);
+      setError('');
+    };
+    reader.readAsText(file);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!title.trim() || !url.trim()) { setError('Title and URL are required.'); return; }
-    try { new URL(url); } catch { setError('Please enter a valid URL (e.g., https://example.com)'); return; }
+
+    if (!title.trim()) { setError('Title is required.'); return; }
+
+    if (itemType === 'link') {
+      if (!url.trim()) { setError('URL is required.'); return; }
+      try { new URL(url); } catch { setError('Please enter a valid URL (e.g., https://example.com)'); return; }
+    } else {
+      if (!content.trim()) { setError('Content is required.'); return; }
+    }
+
     if (imageUrl.trim()) {
       try { new URL(imageUrl); } catch { setError('Please enter a valid image URL or leave it blank.'); return; }
     }
@@ -131,7 +163,6 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
 
     let resolvedImageUrl: string | undefined = imageUrl.trim() || undefined;
 
-    // Upload file to Firebase Storage if one was selected
     if (imageFile) {
       setUploading(true);
       try {
@@ -150,40 +181,121 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
       }
     }
 
-    onSubmit({
-      title: title.trim(),
-      url: url.trim(),
-      description: description.trim(),
-      category,
-      visibility,
-      tags: finalTags,
-      imageUrl: resolvedImageUrl,
-    });
+    if (itemType === 'note') {
+      onSubmit({
+        title: title.trim(),
+        url: '',
+        description: description.trim(),
+        category,
+        visibility,
+        tags: finalTags,
+        imageUrl: resolvedImageUrl,
+        type: 'note',
+        content: content,
+        fileName: fileName || undefined,
+      });
+    } else {
+      onSubmit({
+        title: title.trim(),
+        url: url.trim(),
+        description: description.trim(),
+        category,
+        visibility,
+        tags: finalTags,
+        imageUrl: resolvedImageUrl,
+        type: 'link',
+      });
+    }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Type toggle */}
+      <div className="flex rounded-lg border border-zinc-700 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => { setItemType('link'); setError(''); }}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors ${
+            itemType === 'link'
+              ? 'bg-cyan-950/40 text-cyan-400 border-r border-zinc-700'
+              : 'bg-zinc-900/30 text-zinc-500 border-r border-zinc-700 hover:text-zinc-300'
+          }`}
+        >
+          <Link2 size={13} /> Link
+        </button>
+        <button
+          type="button"
+          onClick={() => { setItemType('note'); setError(''); }}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors ${
+            itemType === 'note'
+              ? 'bg-amber-950/40 text-amber-400'
+              : 'bg-zinc-900/30 text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          <FileText size={13} /> Note
+        </button>
+      </div>
+
       {/* Title */}
       <div className="space-y-1.5">
         <label className="block text-xs font-mono text-zinc-400 uppercase tracking-wider">Title</label>
         <input
           value={title} onChange={e => setTitle(e.target.value)}
-          placeholder="e.g. Design System"
+          placeholder={itemType === 'note' ? 'e.g. Claude Agent Skills' : 'e.g. Design System'}
           autoFocus
           className="w-full bg-zinc-900/50 border border-zinc-700 rounded-lg px-3 py-2.5 text-zinc-100 placeholder-zinc-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors outline-none text-sm"
         />
       </div>
 
-      {/* URL */}
-      <div className="space-y-1.5">
-        <label className="block text-xs font-mono text-zinc-400 uppercase tracking-wider">URL</label>
-        <input
-          value={url} onChange={e => { setUrl(e.target.value); setError(''); }}
-          placeholder="https://..."
-          className="w-full bg-zinc-900/50 border border-zinc-700 rounded-lg px-3 py-2.5 text-zinc-100 placeholder-zinc-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors outline-none text-sm"
-        />
-        {error && <p className="text-red-400 text-xs font-mono mt-1">{error}</p>}
-      </div>
+      {/* URL (link mode only) */}
+      {itemType === 'link' && (
+        <div className="space-y-1.5">
+          <label className="block text-xs font-mono text-zinc-400 uppercase tracking-wider">URL</label>
+          <input
+            value={url} onChange={e => { setUrl(e.target.value); setError(''); }}
+            placeholder="https://..."
+            className="w-full bg-zinc-900/50 border border-zinc-700 rounded-lg px-3 py-2.5 text-zinc-100 placeholder-zinc-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors outline-none text-sm"
+          />
+          {error && <p className="text-red-400 text-xs font-mono mt-1">{error}</p>}
+        </div>
+      )}
+
+      {/* Content (note mode only) */}
+      {itemType === 'note' && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-mono text-zinc-400 uppercase tracking-wider">
+              Content <span className="normal-case font-normal text-zinc-600 ml-1">(Markdown)</span>
+            </label>
+            <button
+              type="button"
+              onClick={() => mdInputRef.current?.click()}
+              className="flex items-center gap-1.5 text-[10px] font-mono text-zinc-500 hover:text-amber-400 transition-colors uppercase tracking-wider"
+            >
+              <Upload size={10} /> Upload .md
+            </button>
+          </div>
+          <textarea
+            value={content}
+            onChange={e => { setContent(e.target.value); setError(''); }}
+            placeholder={'# Skills\n\n## Prompt Engineering\n- Chain of thought\n- Few-shot examples\n...'}
+            className="w-full bg-zinc-900/50 border border-zinc-700 rounded-lg px-3 py-2.5 text-zinc-100 placeholder-zinc-600 focus:border-amber-500/70 focus:ring-1 focus:ring-amber-500/30 transition-colors outline-none resize-y h-48 text-sm font-mono"
+          />
+          {fileName && (
+            <p className="text-[10px] font-mono text-amber-400/70 flex items-center gap-1">
+              <FileText size={10} /> {fileName}
+            </p>
+          )}
+          {error && <p className="text-red-400 text-xs font-mono mt-1">{error}</p>}
+          <input
+            ref={mdInputRef}
+            type="file"
+            accept=".md,.txt,text/plain,text/markdown"
+            className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleMdFileSelect(f); }}
+          />
+        </div>
+      )}
 
       {/* Category + Visibility row */}
       <div className="grid grid-cols-2 gap-3">
@@ -346,7 +458,7 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
           icon={uploading ? <Loader size={16} className="animate-spin" /> : <Save size={16} />}
           disabled={uploading}
         >
-          {uploading ? 'Uploading...' : 'Save Link'}
+          {uploading ? 'Uploading...' : itemType === 'note' ? 'Save Note' : 'Save Link'}
         </Button>
       </div>
     </form>

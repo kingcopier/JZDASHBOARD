@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit2, Trash2, Globe, Code, Briefcase, PenTool, Lightbulb, Zap, ArrowUpRight, Tag, Eye } from 'lucide-react';
+import { Edit2, Trash2, Globe, Code, Briefcase, PenTool, Lightbulb, Zap, ArrowUpRight, Tag, Eye, FileText } from 'lucide-react';
 import { LinkItem, Category } from '../types';
 
 interface LinkCardProps {
@@ -34,13 +34,18 @@ export const getCategoryColor = (category: Category) => {
   }
 };
 
+const stripMarkdown = (text: string) =>
+  text.replace(/^#+\s+/gm, '').replace(/[*_`~>\-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80);
+
 export const LinkCard: React.FC<LinkCardProps> = ({ link, index, onEdit, onDelete, onView, isAuthenticated, style }) => {
+  const isNote = link.type === 'note';
   const formattedIndex = (index + 1).toString().padStart(2, '0');
   const hostname = (() => {
+    if (isNote) return null;
     try {
       return new URL(link.url).hostname.replace(/^www\./, '');
     } catch {
-      return link.url;
+      return link.url || null;
     }
   })();
 
@@ -81,7 +86,13 @@ export const LinkCard: React.FC<LinkCardProps> = ({ link, index, onEdit, onDelet
                 <span>{link.category}</span>
               </div>
             </div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-slate-500">{hostname}</p>
+            {isNote ? (
+              <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.28em] text-amber-500/80">
+                <FileText size={10} /> {link.fileName || 'Note'}
+              </p>
+            ) : (
+              <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-slate-500">{hostname}</p>
+            )}
           </div>
 
           {isAuthenticated && (
@@ -134,10 +145,17 @@ export const LinkCard: React.FC<LinkCardProps> = ({ link, index, onEdit, onDelet
 
         <div className="mt-auto flex items-center justify-between border-t border-white/8 pt-4">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500">
-              <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(74,222,128,0.65)]" />
-              Live
-            </div>
+            {isNote ? (
+              <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-amber-500/80">
+                <div className="h-1.5 w-1.5 rounded-full bg-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.65)]" />
+                Note
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500">
+                <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(74,222,128,0.65)]" />
+                Live
+              </div>
+            )}
             {isAuthenticated && link.viewCount !== undefined && link.viewCount > 0 && (
               <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500">
                 <Eye size={10} />
@@ -146,16 +164,26 @@ export const LinkCard: React.FC<LinkCardProps> = ({ link, index, onEdit, onDelet
             )}
           </div>
 
-          <a
-            href={link.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-100 transition-all duration-200 hover:border-sky-300/35 hover:bg-sky-400/10 hover:text-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 motion-reduce:transition-none"
-          >
-            View
-            <ArrowUpRight size={14} />
-          </a>
+          {isNote ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); onView(link); }}
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-100 transition-all duration-200 hover:border-amber-400/35 hover:bg-amber-400/10 hover:text-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200 motion-reduce:transition-none"
+            >
+              Read
+              <FileText size={14} />
+            </button>
+          ) : (
+            <a
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-100 transition-all duration-200 hover:border-sky-300/35 hover:bg-sky-400/10 hover:text-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 motion-reduce:transition-none"
+            >
+              View
+              <ArrowUpRight size={14} />
+            </a>
+          )}
         </div>
       </div>
     </div>
