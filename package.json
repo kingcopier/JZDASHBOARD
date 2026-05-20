@@ -10,13 +10,16 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@splinetool/react-spline": "^4.1.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.3.0",
+    "clsx": "^2.1.1",
     "firebase": "^12.12.0",
     "lucide-react": "^0.300.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^10.1.0",
+    "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.0"
   },
   "devDependencies": {

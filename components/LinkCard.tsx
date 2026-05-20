@@ -120,7 +120,9 @@ export const LinkCard: React.FC<LinkCardProps> = ({ link, index, onEdit, onDelet
             {link.title}
           </h3>
           <p className="line-clamp-3 border-l-2 border-white/8 pl-4 text-sm leading-7 text-slate-400 transition-colors group-hover:border-sky-300/25 group-hover:text-slate-300">
-            {link.description}
+            {isNote && !link.description && link.content
+              ? stripMarkdown(link.content)
+              : link.description}
           </p>
         </div>
 

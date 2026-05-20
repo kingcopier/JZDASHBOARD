@@ -15,6 +15,7 @@ interface PublicProjectsViewProps {
 export const PublicProjectsView: React.FC<PublicProjectsViewProps> = ({ onBack }) => {
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [missionBriefingOpen, setMissionBriefingOpen] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [detailLink, setDetailLink] = useState<LinkItem | null>(null);
 
@@ -33,6 +34,12 @@ export const PublicProjectsView: React.FC<PublicProjectsViewProps> = ({ onBack }
     return unsub;
   }, []);
 
+  useEffect(() => {
+    if (isLoading) return undefined;
+    const timer = window.setTimeout(() => setMissionBriefingOpen(false), 2600);
+    return () => window.clearTimeout(timer);
+  }, [isLoading]);
+
   const filtered = links.filter(l => {
     const t = searchTerm.toLowerCase();
     return !t || l.title.toLowerCase().includes(t) || l.description.toLowerCase().includes(t);
@@ -46,7 +53,38 @@ export const PublicProjectsView: React.FC<PublicProjectsViewProps> = ({ onBack }
   };
 
   return (
-    <div className="min-h-screen bg-[#020202] text-zinc-100 overflow-x-hidden">
+    <div className="public-vault-entry min-h-screen bg-[#020202] text-zinc-100 overflow-x-hidden">
+      {missionBriefingOpen && !isLoading && (
+        <div className="mission-briefing fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black px-4 text-white">
+          <div className="vault-grid pointer-events-none absolute inset-0 opacity-25" />
+          <div className="precision-scanline pointer-events-none absolute inset-0 opacity-35" />
+          <div className="relative w-full max-w-3xl border border-cyan-200/15 bg-[#030711]/92 p-6 shadow-[0_40px_160px_rgba(0,0,0,0.9),0_0_80px_rgba(125,211,252,0.12)] sm:p-8">
+            <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-cyan-200">
+              Mission briefing
+            </p>
+            <h2 className="mt-4 font-orbitron text-4xl font-black uppercase leading-none tracking-[-0.05em] text-white sm:text-6xl">
+              Archive decrypted
+            </h2>
+            <div className="mt-8 grid gap-3 sm:grid-cols-3">
+              <div className="border border-white/10 bg-white/[0.03] p-4">
+                <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">records</p>
+                <p className="mt-2 text-3xl font-black text-white">{links.length}</p>
+              </div>
+              <div className="border border-white/10 bg-white/[0.03] p-4">
+                <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">access</p>
+                <p className="mt-2 text-3xl font-black text-emerald-200">read</p>
+              </div>
+              <div className="border border-white/10 bg-white/[0.03] p-4">
+                <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">status</p>
+                <p className="mt-2 text-3xl font-black text-cyan-200">live</p>
+              </div>
+            </div>
+            <p className="mt-7 font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">
+              Public systems only / no admin records exposed
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Background */}
       <div className="fixed inset-0 pointer-events-none">
@@ -79,7 +117,10 @@ export const PublicProjectsView: React.FC<PublicProjectsViewProps> = ({ onBack }
         </div>
 
         {/* Title */}
-        <div className="text-center mb-12 space-y-3">
+        <div className="archive-decrypt text-center mb-12 space-y-3">
+          <p className="font-mono text-[10px] uppercase tracking-[0.4em] text-cyan-300/80">
+            Decrypted archive loaded
+          </p>
           <h1 className="font-orbitron font-black text-4xl sm:text-6xl text-transparent bg-clip-text bg-gradient-to-b from-white to-zinc-400 uppercase tracking-tighter">
             The Vault
           </h1>
@@ -111,16 +152,23 @@ export const PublicProjectsView: React.FC<PublicProjectsViewProps> = ({ onBack }
         ) : filtered.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filtered.map((link, index) => (
-              <LinkCard
-                key={link.id}
-                link={link}
-                index={index}
-                onEdit={() => {}}
-                onDelete={() => {}}
-                onView={handleView}
-                isAuthenticated={false}
-                style={{ animationDelay: `${index * 60}ms` }}
-              />
+              <div key={link.id} className="classified-record relative" style={{ animationDelay: `${220 + index * 90}ms` }}>
+                <div className="pointer-events-none absolute left-4 top-4 z-10 border border-cyan-200/20 bg-black/70 px-3 py-1 font-mono text-[9px] uppercase tracking-[0.22em] text-cyan-100">
+                  Case file {String(index + 1).padStart(2, '0')}
+                </div>
+                <div className="pointer-events-none absolute right-4 top-4 z-10 border border-red-200/20 bg-red-950/40 px-3 py-1 font-mono text-[9px] uppercase tracking-[0.22em] text-red-100">
+                  declassified
+                </div>
+                <LinkCard
+                  link={link}
+                  index={index}
+                  onEdit={() => {}}
+                  onDelete={() => {}}
+                  onView={handleView}
+                  isAuthenticated={false}
+                  style={{ animationDelay: `${index * 60}ms` }}
+                />
+              </div>
             ))}
           </div>
         ) : (

@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables — NEVER commit these
+.env
+.env.local
+.env.*.local
+
+# Firebase config with API keys
+firebase-applet-config.json
+
+# Firestore rules contain your admin email — deploy via Firebase CLI, don't commit
+firestore.rules
+
+# AI Studio / prompt history
+migrated_prompt_history/
+
+# Editor & OS
+.DS_Store
+.vscode/
+*.log
+.vercel
+
+# Playwright MCP
+.playwright-mcp/
