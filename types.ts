@@ -94,4 +94,7 @@ export interface LinkItem {
   type?: 'link' | 'note';
   content?: string;
   fileName?: string;
+  bundleUrl?: string;
+  bundleFileName?: string;
+  bundleSize?: number;
 }

@@ -1,9 +1,18 @@
 import React, { useState, useEffect, KeyboardEvent, useRef } from 'react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import JSZip from 'jszip';
 import { storage } from '../firebase';
 import { LinkItem, ProjectVisibility, CategoryItem } from '../types';
 import { Button } from './Button';
-import { Save, X, Tag, Globe, Star, Shield, Upload, Loader, Link2, FileText } from 'lucide-react';
+import { Save, X, Tag, Globe, Star, Shield, Upload, Loader, Link2, FileText, Package, FolderOpen } from 'lucide-react';
+
+const MAX_BUNDLE_BYTES = 50 * 1024 * 1024; // 50 MB
+
+const formatBytes = (n: number): string => {
+  if (!n || n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+};
 
 interface LinkFormProps {
   initialData?: LinkItem | null;
@@ -34,9 +43,17 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
   const [dragOver, setDragOver] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [bundleFile, setBundleFile] = useState<File | null>(null);
+  const [bundleUrl, setBundleUrl] = useState('');
+  const [bundleFileName, setBundleFileName] = useState('');
+  const [bundleSize, setBundleSize] = useState(0);
+  const [zipping, setZipping] = useState(false);
+  const [bundleDragOver, setBundleDragOver] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mdInputRef = useRef<HTMLInputElement>(null);
+  const zipInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   // Default category to first available
   useEffect(() => {
@@ -59,6 +76,10 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
       setImagePreview(initialData.imageUrl ?? '');
       setTags(initialData.tags ?? []);
       setImageFile(null);
+      setBundleFile(null);
+      setBundleUrl(initialData.bundleUrl ?? '');
+      setBundleFileName(initialData.bundleFileName ?? '');
+      setBundleSize(initialData.bundleSize ?? 0);
     } else {
       setItemType('link');
       setTitle('');
@@ -73,6 +94,10 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
       setImagePreview('');
       setTagInput('');
       setTags([]);
+      setBundleFile(null);
+      setBundleUrl('');
+      setBundleFileName('');
+      setBundleSize(0);
     }
   }, [initialData]);
 
@@ -138,6 +163,83 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
     reader.readAsText(file);
   };
 
+  const acceptBundleFile = (file: File) => {
+    const lower = file.name.toLowerCase();
+    const isZip = lower.endsWith('.zip') ||
+                  file.type === 'application/zip' ||
+                  file.type === 'application/x-zip-compressed';
+    if (!isZip) {
+      setError('Bundle must be a .zip file.');
+      return;
+    }
+    if (file.size > MAX_BUNDLE_BYTES) {
+      setError(`Bundle must be under ${formatBytes(MAX_BUNDLE_BYTES)}.`);
+      return;
+    }
+    setBundleFile(file);
+    setBundleFileName(file.name);
+    setBundleSize(file.size);
+    setBundleUrl('');
+    setError('');
+  };
+
+  const handleFolderPick = async (files: FileList) => {
+    if (files.length === 0) return;
+    setZipping(true);
+    setError('');
+    try {
+      const zip = new JSZip();
+      const first = files[0] as File & { webkitRelativePath?: string };
+      const rootName = (first.webkitRelativePath || first.name).split('/')[0] || 'skill';
+      let totalIn = 0;
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i] as File & { webkitRelativePath?: string };
+        const path = f.webkitRelativePath || f.name;
+        totalIn += f.size;
+        zip.file(path, f);
+      }
+      // Quick guard before spending time zipping — the zip will be roughly this size or smaller.
+      if (totalIn > MAX_BUNDLE_BYTES * 4) {
+        setError(`Folder is too large (${formatBytes(totalIn)}). Limit is ${formatBytes(MAX_BUNDLE_BYTES)}.`);
+        setZipping(false);
+        return;
+      }
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+      if (blob.size > MAX_BUNDLE_BYTES) {
+        setError(`Zipped folder is ${formatBytes(blob.size)} — over the ${formatBytes(MAX_BUNDLE_BYTES)} limit.`);
+        setZipping(false);
+        return;
+      }
+      const zipName = `${rootName}.zip`;
+      const zipFile = new File([blob], zipName, { type: 'application/zip' });
+      setBundleFile(zipFile);
+      setBundleFileName(zipName);
+      setBundleSize(zipFile.size);
+      setBundleUrl('');
+    } catch (err) {
+      console.error('Folder zip failed:', err);
+      setError('Could not zip that folder. Try a .zip instead.');
+    } finally {
+      setZipping(false);
+    }
+  };
+
+  const handleBundleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setBundleDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) acceptBundleFile(file);
+  };
+
+  const clearBundle = () => {
+    setBundleFile(null);
+    setBundleUrl('');
+    setBundleFileName('');
+    setBundleSize(0);
+    if (zipInputRef.current) zipInputRef.current.value = '';
+    if (folderInputRef.current) folderInputRef.current.value = '';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -181,6 +283,30 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
       }
     }
 
+    let resolvedBundleUrl: string | undefined = bundleUrl || undefined;
+    let resolvedBundleFileName: string | undefined = bundleFileName || undefined;
+    let resolvedBundleSize: number | undefined = bundleSize || undefined;
+
+    if (itemType === 'note' && bundleFile) {
+      setUploading(true);
+      try {
+        const safeName = bundleFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const path = `bundles/${Date.now()}-${Math.random().toString(36).slice(2)}-${safeName}`;
+        const storageRef = ref(storage, path);
+        await uploadBytes(storageRef, bundleFile);
+        resolvedBundleUrl = await getDownloadURL(storageRef);
+        resolvedBundleFileName = bundleFile.name;
+        resolvedBundleSize = bundleFile.size;
+      } catch (err) {
+        console.error('Bundle upload failed:', err);
+        setError('Bundle upload failed. Try again or use a smaller file.');
+        setUploading(false);
+        return;
+      } finally {
+        setUploading(false);
+      }
+    }
+
     if (itemType === 'note') {
       onSubmit({
         title: title.trim(),
@@ -193,6 +319,9 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
         type: 'note',
         content: content,
         fileName: fileName || undefined,
+        bundleUrl: resolvedBundleUrl,
+        bundleFileName: resolvedBundleFileName,
+        bundleSize: resolvedBundleSize,
       });
     } else {
       onSubmit({
@@ -293,6 +422,96 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
             accept=".md,.txt,text/plain,text/markdown"
             className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) handleMdFileSelect(f); }}
+          />
+        </div>
+      )}
+
+      {/* Skill bundle (note mode only) */}
+      {itemType === 'note' && (
+        <div className="space-y-1.5">
+          <label className="block text-xs font-mono text-zinc-400 uppercase tracking-wider">
+            Skill Bundle <span className="normal-case font-normal text-zinc-600 ml-1">(optional folder or .zip users can download)</span>
+          </label>
+
+          {(bundleFile || bundleUrl) && !zipping && (
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5">
+              <Package size={14} className="text-amber-400 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-mono text-amber-300 truncate">{bundleFileName || 'bundle.zip'}</div>
+                <div className="text-[10px] font-mono text-zinc-500">
+                  {bundleSize ? formatBytes(bundleSize) : ''}
+                  {!bundleFile && bundleUrl && <span className="ml-2 text-zinc-600">· saved</span>}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={clearBundle}
+                className="p-1 rounded text-zinc-500 hover:text-zinc-200 transition-colors"
+                aria-label="Remove bundle"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
+          {zipping && (
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-zinc-700 bg-zinc-900/40">
+              <Loader size={14} className="text-amber-400 animate-spin" />
+              <span className="text-xs font-mono text-zinc-400">Zipping folder…</span>
+            </div>
+          )}
+
+          {!bundleFile && !bundleUrl && !zipping && (
+            <div
+              onDragOver={e => { e.preventDefault(); setBundleDragOver(true); }}
+              onDragLeave={() => setBundleDragOver(false)}
+              onDrop={handleBundleDrop}
+              className={`w-full rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 py-5 px-4 transition-colors ${
+                bundleDragOver
+                  ? 'border-amber-500 bg-amber-950/20'
+                  : 'border-zinc-700 hover:border-zinc-600 bg-zinc-900/30'
+              }`}
+            >
+              <Package size={18} className="text-zinc-500" />
+              <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider">
+                Drop a .zip, or choose:
+              </span>
+              <div className="flex gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => folderInputRef.current?.click()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-700 hover:border-amber-500/60 hover:text-amber-400 text-zinc-400 text-[11px] font-mono uppercase tracking-wider transition-colors"
+                >
+                  <FolderOpen size={11} /> Pick folder
+                </button>
+                <button
+                  type="button"
+                  onClick={() => zipInputRef.current?.click()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-700 hover:border-amber-500/60 hover:text-amber-400 text-zinc-400 text-[11px] font-mono uppercase tracking-wider transition-colors"
+                >
+                  <Upload size={11} /> Choose .zip
+                </button>
+              </div>
+              <span className="font-mono text-[9px] text-zinc-700">max {formatBytes(MAX_BUNDLE_BYTES)}</span>
+            </div>
+          )}
+
+          <input
+            ref={zipInputRef}
+            type="file"
+            accept=".zip,application/zip,application/x-zip-compressed"
+            className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) acceptBundleFile(f); }}
+          />
+          <input
+            ref={folderInputRef}
+            type="file"
+            // @ts-expect-error — non-standard but widely supported
+            webkitdirectory=""
+            directory=""
+            multiple
+            className="hidden"
+            onChange={e => { const fs = e.target.files; if (fs && fs.length > 0) handleFolderPick(fs); }}
           />
         </div>
       )}
@@ -451,14 +670,14 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
       </div>
 
       <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800 mt-6">
-        <Button type="button" variant="ghost" onClick={onCancel} disabled={uploading}>Cancel</Button>
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={uploading || zipping}>Cancel</Button>
         <Button
           type="submit"
           variant="primary"
-          icon={uploading ? <Loader size={16} className="animate-spin" /> : <Save size={16} />}
-          disabled={uploading}
+          icon={(uploading || zipping) ? <Loader size={16} className="animate-spin" /> : <Save size={16} />}
+          disabled={uploading || zipping}
         >
-          {uploading ? 'Uploading...' : itemType === 'note' ? 'Save Note' : 'Save Link'}
+          {zipping ? 'Zipping…' : uploading ? 'Uploading…' : itemType === 'note' ? 'Save Note' : 'Save Link'}
         </Button>
       </div>
     </form>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { ArrowUpRight, Eye, Tag, X, FileText, Copy, Check } from 'lucide-react';
+import { ArrowUpRight, Eye, Tag, X, FileText, Copy, Check, Download, Package } from 'lucide-react';
 import { LinkItem, Category } from '../types';
 import { getCategoryColor, getCategoryIcon } from './LinkCard';
 
@@ -8,6 +8,12 @@ interface ProjectDetailProps {
   link: LinkItem | null;
   onClose: () => void;
 }
+
+const formatBytes = (n?: number): string => {
+  if (!n || n < 1024) return n ? `${n} B` : '';
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+};
 
 export const ProjectDetail: React.FC<ProjectDetailProps> = ({ link, onClose }) => {
   const [copied, setCopied] = useState(false);
@@ -126,12 +132,31 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ link, onClose }) =
 
           {/* CTA */}
           {isNote ? (
-            <button
-              onClick={handleCopy}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 text-black font-bold text-sm uppercase tracking-wider rounded-lg hover:bg-amber-400 transition-colors shadow-[0_0_20px_rgba(251,191,36,0.3)] hover:shadow-[0_0_30px_rgba(251,191,36,0.5)]"
-            >
-              {copied ? <><Check size={16} /> Copied!</> : <><Copy size={16} /> Copy Markdown</>}
-            </button>
+            <div className="flex flex-wrap gap-3">
+              {link.content && (
+                <button
+                  onClick={handleCopy}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 text-black font-bold text-sm uppercase tracking-wider rounded-lg hover:bg-amber-400 transition-colors shadow-[0_0_20px_rgba(251,191,36,0.3)] hover:shadow-[0_0_30px_rgba(251,191,36,0.5)]"
+                >
+                  {copied ? <><Check size={16} /> Copied!</> : <><Copy size={16} /> Copy Markdown</>}
+                </button>
+              )}
+              {link.bundleUrl && (
+                <a
+                  href={link.bundleUrl}
+                  download={link.bundleFileName || 'skill-bundle.zip'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-cyan-500 text-black font-bold text-sm uppercase tracking-wider rounded-lg hover:bg-cyan-400 transition-colors shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:shadow-[0_0_30px_rgba(6,182,212,0.6)]"
+                >
+                  <Package size={16} /> Download Folder
+                  {link.bundleSize ? (
+                    <span className="font-mono text-[10px] opacity-70">{formatBytes(link.bundleSize)}</span>
+                  ) : null}
+                  <Download size={14} className="opacity-80" />
+                </a>
+              )}
+            </div>
           ) : (
             <a
               href={link.url}
