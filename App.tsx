@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, Search, Zap, LogOut, Cpu, ArrowUpDown, Clock, Settings, Star, Shield, Globe } from 'lucide-react';
+import { Plus, Search, Zap, LogOut, Cpu, ArrowUpDown, Clock, Settings, Star, Shield, Globe, Package, LayoutGrid } from 'lucide-react';
 import { LinkItem, CategoryItem, UserRole, ProjectVisibility } from './types';
 import { LinkCard } from './components/LinkCard';
 import { SkeletonCard } from './components/SkeletonCard';
@@ -12,6 +12,7 @@ import { LoginPage } from './components/LoginPage';
 import { PendingApproval } from './components/PendingApproval';
 import { PublicProjectsView } from './components/PublicProjectsView';
 import { SettingsPage } from './components/SettingsPage';
+import { SkillsPanel } from './components/SkillsPanel';
 import { auth, db, ensureUserDoc } from './firebase';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import {
@@ -21,6 +22,7 @@ import {
 
 type AppView = 'landing' | 'public' | 'login' | 'dashboard' | 'settings';
 type SortOrder = 'newest' | 'oldest';
+type DashboardTab = 'projects' | 'skills';
 
 // Which project visibilities can each role see?
 const VISIBLE_FOR_ROLE: Record<UserRole, ProjectVisibility[]> = {
@@ -45,6 +47,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   // ── UI state ─────────────────────────────────────────────────────────────────
+  const [dashboardTab, setDashboardTab] = useState<DashboardTab>('projects');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedVisibility, setSelectedVisibility] = useState<ProjectVisibility | 'All'>('All');
@@ -277,6 +280,36 @@ const App: React.FC = () => {
         </header>
 
         <main>
+          {/* ── Tab toggle: Projects | Skills ── */}
+          <div className="flex justify-center mb-10">
+            <div className="inline-flex rounded-xl border border-zinc-800/80 bg-[#0a0a0c]/80 p-1 backdrop-blur-xl">
+              <button
+                onClick={() => setDashboardTab('projects')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                  dashboardTab === 'projects'
+                    ? 'bg-cyan-950/40 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.15)]'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <LayoutGrid size={14} /> Projects
+              </button>
+              <button
+                onClick={() => setDashboardTab('skills')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                  dashboardTab === 'skills'
+                    ? 'bg-amber-950/40 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.15)]'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <Package size={14} /> Skills
+              </button>
+            </div>
+          </div>
+
+          {dashboardTab === 'skills' ? (
+            <SkillsPanel userRole={userRole} user={user} categories={categories} isAdmin={isAdmin} />
+          ) : (
+          <>
           {/* ── Controls ── */}
           <div className="sticky top-4 z-30 mb-12 space-y-3">
 
@@ -394,6 +427,8 @@ const App: React.FC = () => {
               </div>
             )}
           </section>
+          </>
+          )}
         </main>
       </div>
 

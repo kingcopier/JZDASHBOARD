@@ -165,11 +165,13 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
 
   const acceptBundleFile = (file: File) => {
     const lower = file.name.toLowerCase();
-    const isZip = lower.endsWith('.zip') ||
-                  file.type === 'application/zip' ||
-                  file.type === 'application/x-zip-compressed';
-    if (!isZip) {
-      setError('Bundle must be a .zip file.');
+    const isZipLike = lower.endsWith('.zip') ||
+                      lower.endsWith('.skill') ||
+                      lower.endsWith('.skills') ||
+                      file.type === 'application/zip' ||
+                      file.type === 'application/x-zip-compressed';
+    if (!isZipLike) {
+      setError('Bundle must be a .skill, .skills, or .zip file.');
       return;
     }
     if (file.size > MAX_BUNDLE_BYTES) {
@@ -293,7 +295,12 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
         const safeName = bundleFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
         const path = `bundles/${Date.now()}-${Math.random().toString(36).slice(2)}-${safeName}`;
         const storageRef = ref(storage, path);
-        await uploadBytes(storageRef, bundleFile);
+        // contentDisposition forces a download with the real filename — the HTML
+        // `download` attribute is ignored for cross-origin Storage URLs.
+        await uploadBytes(storageRef, bundleFile, {
+          contentType: bundleFile.type || 'application/zip',
+          contentDisposition: `attachment; filename="${bundleFile.name.replace(/["\\]/g, '')}"`,
+        });
         resolvedBundleUrl = await getDownloadURL(storageRef);
         resolvedBundleFileName = bundleFile.name;
         resolvedBundleSize = bundleFile.size;
@@ -474,7 +481,7 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
             >
               <Package size={18} className="text-zinc-500" />
               <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider">
-                Drop a .zip, or choose:
+                Drop a .skill, .skills, or .zip, or choose:
               </span>
               <div className="flex gap-2 mt-1">
                 <button
@@ -489,7 +496,7 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
                   onClick={() => zipInputRef.current?.click()}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-700 hover:border-amber-500/60 hover:text-amber-400 text-zinc-400 text-[11px] font-mono uppercase tracking-wider transition-colors"
                 >
-                  <Upload size={11} /> Choose .zip
+                  <Upload size={11} /> Choose file
                 </button>
               </div>
               <span className="font-mono text-[9px] text-zinc-700">max {formatBytes(MAX_BUNDLE_BYTES)}</span>
@@ -499,7 +506,7 @@ export const LinkForm: React.FC<LinkFormProps> = ({ initialData, categories, onS
           <input
             ref={zipInputRef}
             type="file"
-            accept=".zip,application/zip,application/x-zip-compressed"
+            accept=".skill,.skills,.zip,application/zip,application/x-zip-compressed"
             className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) acceptBundleFile(f); }}
           />

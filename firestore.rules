@@ -51,7 +51,9 @@ service cloud.firestore {
     function isValidLink(data) {
       return data.keys().hasAll(['title', 'url', 'category', 'createdAt', 'authorUid']) &&
              data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
-             data.url is string && data.url.matches("^https?://.*") &&
+             data.url is string &&
+             (data.url.matches("^https?://.*") ||
+              (data.get('type', 'link') == 'note' && data.url == '')) &&
              data.category is string && data.category.size() > 0 &&
              data.createdAt is number &&
              data.authorUid == request.auth.uid &&
@@ -119,6 +121,46 @@ service cloud.firestore {
         ||
         // Anyone can increment viewCount by exactly 1 (no other field changes)
         isViewCountOnly();
+
+      allow delete: if isAdmin();
+    }
+
+    // ── /skills ─────────────────────────────────────────────────────
+    // Downloadable .skill bundles. Public read; role filtering (vip/admin
+    // visibility) enforced client-side like /links. Anyone may increment
+    // downloadCount by exactly 1.
+    function isValidSkill(data) {
+      return data.keys().hasAll(['name', 'category', 'visibility', 'bundleUrl', 'bundleFileName', 'createdAt', 'authorUid']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.category is string && data.category.size() > 0 &&
+             data.visibility in ['public', 'vip', 'admin'] &&
+             data.bundleUrl is string && data.bundleUrl.matches("^https?://.*") &&
+             data.bundleFileName is string && data.bundleFileName.size() > 0 &&
+             data.createdAt is number &&
+             data.authorUid == request.auth.uid &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
+             (!('readme' in data) || (data.readme is string && data.readme.size() <= 100000)) &&
+             validTags(data) &&
+             validImageUrl(data);
+    }
+
+    function isDownloadCountOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['downloadCount']) &&
+             request.resource.data.downloadCount == resource.data.downloadCount + 1;
+    }
+
+    match /skills/{skillId} {
+      allow read: if true;
+
+      allow create: if isAdmin() && isValidSkill(request.resource.data);
+
+      allow update: if
+        (isAdmin() &&
+         isValidSkill(request.resource.data) &&
+         request.resource.data.authorUid == resource.data.authorUid &&
+         request.resource.data.createdAt == resource.data.createdAt)
+        ||
+        isDownloadCountOnly();
 
       allow delete: if isAdmin();
     }

@@ -26,3 +26,5 @@ migrated_prompt_history/
 
 # Playwright MCP
 .playwright-mcp/
+.cursor/
+.codegraph/

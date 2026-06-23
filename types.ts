@@ -98,3 +98,22 @@ export interface LinkItem {
   bundleFileName?: string;
   bundleSize?: number;
 }
+
+// ── Skills (downloadable .skill bundles) ──────────────────────────────────────
+export interface SkillItem {
+  id: string;
+  name: string;                 // from SKILL.md frontmatter `name`
+  description: string;          // from SKILL.md frontmatter `description`
+  readme?: string;              // SKILL.md body (markdown after frontmatter)
+  category: Category;
+  visibility: ProjectVisibility;
+  tags?: string[];
+  imageUrl?: string;
+  bundleUrl: string;            // download URL in Firebase Storage
+  bundleFileName: string;       // e.g. big-bird.skill
+  bundleSize?: number;
+  createdAt: number;
+  updatedAt?: number;
+  authorUid?: string;
+  downloadCount?: number;
+}

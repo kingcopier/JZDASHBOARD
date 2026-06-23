@@ -149,7 +149,8 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ link, onClose }) =
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-6 py-3 bg-cyan-500 text-black font-bold text-sm uppercase tracking-wider rounded-lg hover:bg-cyan-400 transition-colors shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:shadow-[0_0_30px_rgba(6,182,212,0.6)]"
                 >
-                  <Package size={16} /> Download Folder
+                  <Package size={16} />
+                  {/\.skills?$/i.test(link.bundleFileName || '') ? 'Download Skill' : 'Download Folder'}
                   {link.bundleSize ? (
                     <span className="font-mono text-[10px] opacity-70">{formatBytes(link.bundleSize)}</span>
                   ) : null}

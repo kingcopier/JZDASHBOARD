@@ -1,0 +1,7 @@
+.vscode
+.playwright-mcp
+.codegraph
+.cursor
+.git
+node_modules
+dist
