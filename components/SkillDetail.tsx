@@ -36,17 +36,17 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onClose, onDown
   const installCmd = `unzip ${skill.bundleFileName} -d ~/.claude/skills/`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose} />
 
-      <div className="relative w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up">
+      <div className="relative w-full max-w-2xl my-auto max-h-[90vh] flex flex-col bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up">
         {skill.imageUrl ? (
-          <div className="relative h-56 overflow-hidden">
+          <div className="relative h-56 flex-none overflow-hidden">
             <img src={skill.imageUrl} alt={skill.name} className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/20 to-transparent" />
           </div>
         ) : (
-          <div className="h-3 bg-gradient-to-r from-amber-500/40 via-orange-500/40 to-yellow-500/40" />
+          <div className="h-3 flex-none bg-gradient-to-r from-amber-500/40 via-orange-500/40 to-yellow-500/40" />
         )}
 
         <button
@@ -57,7 +57,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onClose, onDown
           <X size={16} />
         </button>
 
-        <div className="p-8">
+        <div className="p-8 overflow-y-auto">
           <div className="flex items-center gap-3 mb-4 flex-wrap">
             <div className={`flex items-center gap-2 px-2.5 py-1 rounded-md border text-[10px] uppercase font-bold tracking-wider ${getCategoryColor(skill.category)}`}>
               {getCategoryIcon(skill.category)}
@@ -100,7 +100,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onClose, onDown
           )}
 
           {skill.readme && (
-            <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 overflow-auto max-h-[40vh]">
+            <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
               <div className="prose prose-invert prose-sm max-w-none
                 prose-headings:font-orbitron prose-headings:tracking-wide prose-headings:text-zinc-100
                 prose-h1:text-2xl prose-h2:text-xl prose-h3:text-base
