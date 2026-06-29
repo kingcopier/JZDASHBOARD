@@ -5,7 +5,7 @@ import { storage } from '../firebase';
 import { SkillItem, ProjectVisibility, CategoryItem, Attachment } from '../types';
 import { parseSkillBundle } from '../lib/parseSkill';
 import { Button } from './Button';
-import { Save, X, Tag, Globe, Star, Shield, Upload, Loader, Package, FolderOpen, Sparkles, Paperclip } from 'lucide-react';
+import { Save, X, Tag, Globe, Star, Shield, Upload, Loader, Package, FolderOpen, Sparkles, Paperclip, FileText } from 'lucide-react';
 
 const MAX_BUNDLE_BYTES = 50 * 1024 * 1024; // 50 MB
 const MAX_README_CHARS = 100_000;          // matches firestore.rules cap
@@ -60,6 +60,20 @@ export const SkillForm: React.FC<SkillFormProps> = ({ initialData, categories, o
   const zipInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const attachInputRef = useRef<HTMLInputElement>(null);
+  const mdInputRef = useRef<HTMLInputElement>(null);
+
+  const handleMdFileSelect = (file: File) => {
+    if (!file.name.endsWith('.md') && !file.type.includes('text')) {
+      setError('Please select a .md or text file.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      setReadme(((e.target?.result as string) ?? '').slice(0, MAX_README_CHARS));
+      setError('');
+    };
+    reader.readAsText(file);
+  };
 
   useEffect(() => {
     if (!category && categories.length > 0) setCategory(categories[0].name);
@@ -440,6 +454,40 @@ export const SkillForm: React.FC<SkillFormProps> = ({ initialData, categories, o
           placeholder="What does this skill do, and when should it be used?"
           value={description}
           onChange={e => setDescription(e.target.value)}
+        />
+      </div>
+
+      {/* Content / README (Markdown) — renders on the skill detail page */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <label className="block text-xs font-mono text-zinc-400 uppercase tracking-wider">
+            Content <span className="normal-case font-normal text-zinc-600 ml-1">(Markdown — the SKILL.md body)</span>
+          </label>
+          <button
+            type="button"
+            onClick={() => mdInputRef.current?.click()}
+            className="flex items-center gap-1.5 text-[10px] font-mono text-zinc-500 hover:text-amber-400 transition-colors uppercase tracking-wider"
+          >
+            <Upload size={10} /> Upload .md
+          </button>
+        </div>
+        <textarea
+          value={readme}
+          onChange={e => { setReadme(e.target.value); setError(''); }}
+          placeholder={'# Storm Research\n\n## What this does\n...'}
+          className="w-full bg-zinc-900/50 border border-zinc-700 rounded-lg px-3 py-2.5 text-zinc-100 placeholder-zinc-600 focus:border-amber-500/70 focus:ring-1 focus:ring-amber-500/30 transition-colors outline-none resize-y h-48 text-sm font-mono"
+        />
+        {readme && (
+          <p className="text-[10px] font-mono text-amber-400/60 flex items-center gap-1">
+            <FileText size={10} /> {readme.length.toLocaleString()} chars · auto-fills from an uploaded SKILL.md if left blank
+          </p>
+        )}
+        <input
+          ref={mdInputRef}
+          type="file"
+          accept=".md,.txt,text/plain,text/markdown"
+          className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleMdFileSelect(f); e.target.value = ''; }}
         />
       </div>
 
