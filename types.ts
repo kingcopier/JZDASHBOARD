@@ -77,6 +77,14 @@ export interface AccessRequest {
   source: 'vault-denied';
 }
 
+// ── Attachments (extra files that coordinate with a note/skill) ──────────────
+export interface Attachment {
+  name: string;          // original filename, e.g. template.html
+  url: string;           // download/view URL in Firebase Storage
+  size: number;          // bytes
+  contentType?: string;  // MIME type, e.g. text/html
+}
+
 // ── Links / Projects ──────────────────────────────────────────────────────────
 export interface LinkItem {
   id: string;
@@ -97,6 +105,7 @@ export interface LinkItem {
   bundleUrl?: string;
   bundleFileName?: string;
   bundleSize?: number;
+  attachments?: Attachment[];
 }
 
 // ── Skills (downloadable .skill bundles) ──────────────────────────────────────

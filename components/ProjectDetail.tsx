@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { ArrowUpRight, Eye, Tag, X, FileText, Copy, Check, Download, Package } from 'lucide-react';
-import { LinkItem, Category } from '../types';
+import { ArrowUpRight, Eye, Tag, X, FileText, Copy, Check, Download, Package, Paperclip, ExternalLink } from 'lucide-react';
+import { LinkItem, Category, Attachment } from '../types';
 import { getCategoryColor, getCategoryIcon } from './LinkCard';
 
 interface ProjectDetailProps {
@@ -13,6 +13,13 @@ const formatBytes = (n?: number): string => {
   if (!n || n < 1024) return n ? `${n} B` : '';
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+// Files a browser can render directly get an extra "open" link.
+const isOpenable = (att: Attachment): boolean => {
+  const ct = att.contentType ?? '';
+  if (ct.startsWith('image/') || ct.startsWith('text/') || ct === 'application/pdf') return true;
+  return /\.(html?|pdf|png|jpe?g|gif|webp|svg|txt|md|json|csv)$/i.test(att.name);
 };
 
 export const ProjectDetail: React.FC<ProjectDetailProps> = ({ link, onClose }) => {
@@ -126,6 +133,45 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ link, onClose }) =
                 prose-li:text-zinc-300
                 prose-hr:border-zinc-700">
                 <ReactMarkdown>{link.content}</ReactMarkdown>
+              </div>
+            </div>
+          )}
+
+          {/* Attachments */}
+          {isNote && link.attachments && link.attachments.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-mono text-zinc-400 uppercase tracking-wider">Attachments</h3>
+              <div className="space-y-1.5">
+                {link.attachments.map((att, i) => (
+                  <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-zinc-700 bg-zinc-900/40">
+                    <Paperclip size={14} className="text-amber-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-zinc-200 truncate">{att.name}</div>
+                      {att.size ? <div className="text-[10px] font-mono text-zinc-500">{formatBytes(att.size)}</div> : null}
+                    </div>
+                    {isOpenable(att) && (
+                      <a
+                        href={att.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-zinc-400 hover:text-amber-400 hover:bg-amber-500/5 transition-colors text-[11px] font-mono uppercase tracking-wider"
+                        title="Open in browser"
+                      >
+                        <ExternalLink size={13} /> Open
+                      </a>
+                    )}
+                    <a
+                      href={att.url}
+                      download={att.name}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-zinc-400 hover:text-cyan-400 hover:bg-cyan-500/5 transition-colors text-[11px] font-mono uppercase tracking-wider"
+                      title="Download"
+                    >
+                      <Download size={13} /> Get
+                    </a>
+                  </div>
+                ))}
               </div>
             </div>
           )}

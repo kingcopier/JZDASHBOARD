@@ -21,6 +21,13 @@ service firebase.storage {
       allow delete: if isAdmin();
     }
 
+    match /attachments/{file=**} {
+      allow read: if true;
+      allow write: if isAdmin() &&
+                      request.resource.size < 50 * 1024 * 1024;
+      allow delete: if isAdmin();
+    }
+
     match /{allOther=**} {
       allow read, write: if false;
     }

@@ -169,7 +169,7 @@ const App: React.FC = () => {
       setModalOpen(false);
     } catch (err) {
       console.error('Error saving link:', err);
-      alert('Failed to save link');
+      alert(`Failed to save: ${(err as Error)?.message ?? err}`);
     }
   };
 

@@ -57,10 +57,11 @@ service cloud.firestore {
              data.category is string && data.category.size() > 0 &&
              data.createdAt is number &&
              data.authorUid == request.auth.uid &&
-             (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 2000)) &&
              validTags(data) &&
              validImageUrl(data) &&
-             validVisibility(data);
+             validVisibility(data) &&
+             (!('attachments' in data) || (data.attachments is list && data.attachments.size() <= 20));
     }
 
     function isOptionalString(data, key, maxLength) {
