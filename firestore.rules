@@ -142,7 +142,8 @@ service cloud.firestore {
              (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
              (!('readme' in data) || (data.readme is string && data.readme.size() <= 100000)) &&
              validTags(data) &&
-             validImageUrl(data);
+             validImageUrl(data) &&
+             (!('attachments' in data) || (data.attachments is list && data.attachments.size() <= 20));
     }
 
     function isDownloadCountOnly() {

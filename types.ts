@@ -121,6 +121,7 @@ export interface SkillItem {
   bundleUrl: string;            // download URL in Firebase Storage
   bundleFileName: string;       // e.g. big-bird.skill
   bundleSize?: number;
+  attachments?: Attachment[];   // extra coordinating files (HTML templates, etc.)
   createdAt: number;
   updatedAt?: number;
   authorUid?: string;

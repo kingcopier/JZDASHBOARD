@@ -2,13 +2,15 @@ import React, { useState, useEffect, KeyboardEvent, useRef } from 'react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import JSZip from 'jszip';
 import { storage } from '../firebase';
-import { SkillItem, ProjectVisibility, CategoryItem } from '../types';
+import { SkillItem, ProjectVisibility, CategoryItem, Attachment } from '../types';
 import { parseSkillBundle } from '../lib/parseSkill';
 import { Button } from './Button';
-import { Save, X, Tag, Globe, Star, Shield, Upload, Loader, Package, FolderOpen, Sparkles } from 'lucide-react';
+import { Save, X, Tag, Globe, Star, Shield, Upload, Loader, Package, FolderOpen, Sparkles, Paperclip } from 'lucide-react';
 
 const MAX_BUNDLE_BYTES = 50 * 1024 * 1024; // 50 MB
 const MAX_README_CHARS = 100_000;          // matches firestore.rules cap
+const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024; // 50 MB per file
+const MAX_ATTACHMENTS = 20;
 
 const formatBytes = (n: number): string => {
   if (!n || n < 1024) return `${n} B`;
@@ -51,8 +53,13 @@ export const SkillForm: React.FC<SkillFormProps> = ({ initialData, categories, o
   const [bundleDragOver, setBundleDragOver] = useState(false);
   const [error, setError] = useState('');
 
+  const [attachments, setAttachments] = useState<Attachment[]>([]); // already saved
+  const [newFiles, setNewFiles] = useState<File[]>([]);             // pending upload
+  const [attachDragOver, setAttachDragOver] = useState(false);
+
   const zipInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const attachInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!category && categories.length > 0) setCategory(categories[0].name);
@@ -71,6 +78,8 @@ export const SkillForm: React.FC<SkillFormProps> = ({ initialData, categories, o
       setBundleUrl(initialData.bundleUrl ?? '');
       setBundleFileName(initialData.bundleFileName ?? '');
       setBundleSize(initialData.bundleSize ?? 0);
+      setAttachments(initialData.attachments ?? []);
+      setNewFiles([]);
       setParsedNote('');
     } else {
       setName('');
@@ -85,6 +94,8 @@ export const SkillForm: React.FC<SkillFormProps> = ({ initialData, categories, o
       setBundleUrl('');
       setBundleFileName('');
       setBundleSize(0);
+      setAttachments([]);
+      setNewFiles([]);
       setParsedNote('');
     }
   }, [initialData]);
@@ -188,6 +199,31 @@ export const SkillForm: React.FC<SkillFormProps> = ({ initialData, categories, o
     if (file) acceptBundleFile(file);
   };
 
+  const addAttachmentFiles = (files: FileList | File[]) => {
+    const incoming = Array.from(files);
+    if (incoming.length === 0) return;
+    const room = MAX_ATTACHMENTS - (attachments.length + newFiles.length);
+    if (room <= 0) { setError(`Up to ${MAX_ATTACHMENTS} attachments.`); return; }
+    const accepted: File[] = [];
+    for (const f of incoming.slice(0, room)) {
+      if (f.size > MAX_ATTACHMENT_BYTES) {
+        setError(`"${f.name}" is ${formatBytes(f.size)} — over the ${formatBytes(MAX_ATTACHMENT_BYTES)} limit.`);
+        continue;
+      }
+      accepted.push(f);
+    }
+    if (accepted.length) { setNewFiles(prev => [...prev, ...accepted]); setError(''); }
+  };
+
+  const handleAttachmentDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setAttachDragOver(false);
+    if (e.dataTransfer.files.length) addAttachmentFiles(e.dataTransfer.files);
+  };
+
+  const removeNewFile = (idx: number) => setNewFiles(prev => prev.filter((_, i) => i !== idx));
+  const removeSavedAttachment = (idx: number) => setAttachments(prev => prev.filter((_, i) => i !== idx));
+
   const clearBundle = () => {
     setBundleFile(null);
     setBundleUrl('');
@@ -257,6 +293,29 @@ export const SkillForm: React.FC<SkillFormProps> = ({ initialData, categories, o
       }
     }
 
+    let resolvedAttachments: Attachment[] = attachments;
+    if (newFiles.length > 0) {
+      setUploading(true);
+      try {
+        const uploaded = await Promise.all(newFiles.map(async file => {
+          const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+          const path = `attachments/${Date.now()}-${Math.random().toString(36).slice(2)}-${safeName}`;
+          const storageRef = ref(storage, path);
+          await uploadBytes(storageRef, file, { contentType: file.type || 'application/octet-stream' });
+          const url = await getDownloadURL(storageRef);
+          return { name: file.name, url, size: file.size, contentType: file.type || undefined };
+        }));
+        resolvedAttachments = [...attachments, ...uploaded];
+      } catch (err) {
+        console.error('Attachment upload failed:', err);
+        setError('One or more attachments failed to upload. Try again.');
+        setUploading(false);
+        return;
+      } finally {
+        setUploading(false);
+      }
+    }
+
     onSubmit({
       name: name.trim(),
       description: description.trim(),
@@ -268,6 +327,7 @@ export const SkillForm: React.FC<SkillFormProps> = ({ initialData, categories, o
       bundleUrl: resolvedBundleUrl,
       bundleFileName: resolvedBundleFileName,
       bundleSize: resolvedBundleSize || undefined,
+      attachments: resolvedAttachments.length ? resolvedAttachments : undefined,
     });
   };
 
@@ -442,6 +502,66 @@ export const SkillForm: React.FC<SkillFormProps> = ({ initialData, categories, o
             maxLength={30}
           />
         </div>
+      </div>
+
+      {/* Attachments — individual coordinating files (HTML templates, etc.) */}
+      <div className="space-y-1.5">
+        <label className="block text-xs font-mono text-zinc-400 uppercase tracking-wider">
+          Attachments <span className="normal-case font-normal text-zinc-600 ml-1">(optional — HTML templates, images, extra files; each downloads separately)</span>
+        </label>
+
+        {(attachments.length > 0 || newFiles.length > 0) && (
+          <div className="space-y-1.5">
+            {attachments.map((att, i) => (
+              <div key={`saved-${i}`} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-amber-500/30 bg-amber-500/5">
+                <Paperclip size={13} className="text-amber-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-mono text-amber-300 truncate">{att.name}</div>
+                  <div className="text-[10px] font-mono text-zinc-500">{formatBytes(att.size)}<span className="ml-2 text-zinc-600">· saved</span></div>
+                </div>
+                <button type="button" onClick={() => removeSavedAttachment(i)} className="p-1 rounded text-zinc-500 hover:text-zinc-200 transition-colors" aria-label={`Remove ${att.name}`}>
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+            {newFiles.map((f, i) => (
+              <div key={`new-${i}`} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-zinc-700 bg-zinc-900/40">
+                <Paperclip size={13} className="text-zinc-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-mono text-zinc-200 truncate">{f.name}</div>
+                  <div className="text-[10px] font-mono text-zinc-500">{formatBytes(f.size)}<span className="ml-2 text-zinc-600">· pending</span></div>
+                </div>
+                <button type="button" onClick={() => removeNewFile(i)} className="p-1 rounded text-zinc-500 hover:text-zinc-200 transition-colors" aria-label={`Remove ${f.name}`}>
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {attachments.length + newFiles.length < MAX_ATTACHMENTS && (
+          <div
+            onDragOver={e => { e.preventDefault(); setAttachDragOver(true); }}
+            onDragLeave={() => setAttachDragOver(false)}
+            onDrop={handleAttachmentDrop}
+            onClick={() => attachInputRef.current?.click()}
+            className={`w-full rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1.5 py-4 px-4 cursor-pointer transition-colors ${
+              attachDragOver ? 'border-amber-500 bg-amber-950/20' : 'border-zinc-700 hover:border-zinc-600 bg-zinc-900/30'
+            }`}
+          >
+            <Paperclip size={16} className="text-zinc-500" />
+            <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider">Drop files or click to add</span>
+            <span className="font-mono text-[9px] text-zinc-700">any file type · up to {MAX_ATTACHMENTS} · max {formatBytes(MAX_ATTACHMENT_BYTES)} each</span>
+          </div>
+        )}
+
+        <input
+          ref={attachInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={e => { if (e.target.files) addAttachmentFiles(e.target.files); e.target.value = ''; }}
+        />
       </div>
 
       {/* Thumbnail (URL only) */}
